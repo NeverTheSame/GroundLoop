@@ -7,7 +7,7 @@ struct GroundLoopCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "groundloop",
         abstract: "Manage and track LLM API usage.",
-        subcommands: [Discover.self, Account.self],
+        subcommands: [Discover.self, Account.self, RayBan.self],
         defaultSubcommand: nil
     )
 }
@@ -236,6 +236,63 @@ extension Account {
                 } catch {
                     log("❌ Failed to remove account: \(error)")
                 }
+            }
+        }
+    }
+}
+
+// MARK: - RayBan
+
+struct RayBan: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Download videos from Meta Ray-Ban glasses.",
+        subcommands: [Find.self, Download.self],
+        defaultSubcommand: Find.self
+    )
+}
+
+extension RayBan {
+    struct Find: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Check if Ray-Ban glasses are connected.")
+
+        func run() async throws {
+            let downloader = RayBanDownloader()
+            guard let device = downloader.findDevice() else {
+                log("❌ Ray-Ban glasses not found.")
+                log("   Connect glasses via USB and try again.")
+                return
+            }
+            let videos = downloader.findVideos(on: device)
+            log("✅ Found device: \(device.lastPathComponent)")
+            log("   Videos ready to download: \(videos.count)")
+        }
+    }
+
+    struct Download: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Download all videos to your Mac.")
+
+        @Option(name: .shortAndLong, help: "Destination folder (default: ~/Movies/RayBan)")
+        var output: String = "~/Movies/RayBan"
+
+        func run() async throws {
+            let destination = URL(fileURLWithPath: (output as NSString).expandingTildeInPath)
+            log("📥 Downloading Ray-Ban videos to \(destination.path)...")
+            log("")
+
+            let downloader = RayBanDownloader()
+            do {
+                let result = try await downloader.download(to: destination) { msg in
+                    log(msg)
+                }
+                log("")
+                log("✅ Done: \(result.copied) downloaded, \(result.skipped) already existed")
+                log("   Saved to: \(result.destination.path)")
+            } catch RayBanError.deviceNotFound {
+                log("❌ Device not found. Connect glasses via USB and try again.")
+            } catch RayBanError.noVideosFound {
+                log("⚠️ No videos found on the device.")
+            } catch {
+                log("❌ \(error.localizedDescription)")
             }
         }
     }
