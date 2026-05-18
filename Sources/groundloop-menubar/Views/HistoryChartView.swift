@@ -81,6 +81,7 @@ struct HistoryChartView: View {
                 let countsByMetric = Dictionary(grouping: filtered, by: \.metricLabel)
                     .mapValues(\.count)
                 let needMoreSamples = countsByMetric.values.allSatisfy { $0 < 2 }
+                let yUpper = autoYUpperBound(for: filtered)
 
                 Chart(filtered) { point in
                     LineMark(
@@ -108,12 +109,20 @@ struct HistoryChartView: View {
                     .symbolSize(36)
                 }
                 .chartXScale(domain: Date().addingTimeInterval(-range.interval)...Date())
-                .chartYScale(domain: 0...100)
+                .chartYScale(domain: 0...yUpper)
                 .chartYAxis {
-                    AxisMarks(values: [0, 25, 50, 75, 100]) { value in
+                    AxisMarks(position: .trailing) { value in
                         AxisGridLine()
                         AxisValueLabel {
-                            if let v = value.as(Int.self) { Text("\(v)%") }
+                            if let v = value.as(Double.self) {
+                                if v < 1 {
+                                    Text(String(format: "%.2f%%", v))
+                                } else if v < 10 {
+                                    Text(String(format: "%.1f%%", v))
+                                } else {
+                                    Text("\(Int(v))%")
+                                }
+                            }
                         }
                     }
                 }
@@ -132,5 +141,15 @@ struct HistoryChartView: View {
         .task(id: account.id) {
             snapshots = await UsageHistoryStore.shared.snapshots(forAccount: account.id)
         }
+    }
+
+    /// Auto-zoom the Y axis so chronically-near-zero metrics (like a fresh
+    /// Cursor billing cycle at 0.5%) are still visually meaningful.
+    private func autoYUpperBound(for points: [HistorySnapshot]) -> Double {
+        let maxUsed = points.map(\.usedPercent).max() ?? 0
+        if maxUsed <= 1 { return max(maxUsed * 1.5, 1) }
+        if maxUsed <= 10 { return ceil(maxUsed / 2) * 2 + 1 }
+        if maxUsed <= 50 { return min(100, ceil(maxUsed / 10) * 10 + 5) }
+        return 100
     }
 }
