@@ -3,14 +3,29 @@ import GroundLoop
 
 struct MetricRowView: View {
     let metric: UsageMetric
+    var onHide: (() -> Void)? = nil
+
+    @State private var isHovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack {
+            HStack(spacing: 6) {
                 Text(metric.label).font(.caption)
                 Spacer()
                 Text(formattedValue).font(.caption).foregroundColor(.secondary)
+                if let onHide {
+                    Button(action: onHide) {
+                        Image(systemName: "eye.slash")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Hide this metric")
+                    .opacity(isHovering ? 1 : 0)
+                }
             }
+            .contentShape(Rectangle())
+            .onHover { isHovering = $0 }
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {

@@ -11,6 +11,7 @@ struct AccountRowView: View {
 
     @State private var isEditingLabel = false
     @State private var tempLabel = ""
+    @ObservedObject private var hiddenStore = HiddenMetricsStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -82,8 +83,28 @@ struct AccountRowView: View {
                     Text("No usage data")
                         .font(.caption).foregroundColor(.secondary)
                 } else {
-                    ForEach(Array(data.metrics.enumerated()), id: \.offset) { _, metric in
-                        MetricRowView(metric: metric)
+                    let visible = data.metrics.filter {
+                        !hiddenStore.isHidden(accountID: account.id, metricLabel: $0.label)
+                    }
+                    ForEach(Array(visible.enumerated()), id: \.offset) { _, metric in
+                        MetricRowView(metric: metric, onHide: {
+                            hiddenStore.hide(accountID: account.id, metricLabel: metric.label)
+                        })
+                    }
+                    let hiddenCount = hiddenStore.hiddenCount(accountID: account.id)
+                    if hiddenCount > 0 {
+                        Button {
+                            hiddenStore.unhideAll(accountID: account.id)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye")
+                                Text("\(hiddenCount) hidden — show")
+                            }
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show hidden metrics for this account")
                     }
                 }
             } else {
