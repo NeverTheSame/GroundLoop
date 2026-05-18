@@ -11,6 +11,7 @@ func serviceLogoName(for service: LLMService) -> String? {
     case .windsurf: "windsurf"
     case .antigravity: "google-antigravity"
     case .glm: "glm"
+    case .openrouter: nil
     }
 }
 
@@ -24,6 +25,7 @@ func serviceIcon(for service: LLMService) -> String {
     case .antigravity: "arrow.up.circle"
     case .codex: "book.closed"
     case .glm: "sparkles"
+    case .openrouter: "arrow.triangle.branch"
     }
 }
 
@@ -36,6 +38,7 @@ func serviceColor(for service: LLMService) -> Color {
     case .antigravity: .indigo
     case .codex: .purple
     case .glm: .cyan
+    case .openrouter: .pink
     }
 }
 

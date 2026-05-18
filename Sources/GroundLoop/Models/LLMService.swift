@@ -9,7 +9,8 @@ public enum LLMService: String, Codable, CaseIterable, Sendable {
     case antigravity
     case codex
     case glm
-    
+    case openrouter
+
     public var displayName: String {
         switch self {
         case .claude: "Claude"
@@ -19,6 +20,7 @@ public enum LLMService: String, Codable, CaseIterable, Sendable {
         case .antigravity: "Antigravity"
         case .codex: "Codex"
         case .glm: "GLM Coding Plan"
+        case .openrouter: "OpenRouter"
         }
     }
 }

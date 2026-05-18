@@ -24,6 +24,7 @@ public actor GroundLoop {
         clients[.codex] = CodexClient()
         clients[.antigravity] = AntigravityClient()
         clients[.glm] = GLMClient()
+        clients[.openrouter] = OpenRouterClient()
     }
     
     // MARK: - Account Management
