@@ -24,7 +24,7 @@ struct HeaderView: View {
                 Image(systemName: "magnifyingglass")
             }
             .disabled(viewModel.isDiscovering)
-            .help("Discover new accounts")
+            .help("Re-discover accounts (e.g. to recover one you removed)")
 
             Button {
                 if viewModel.isDetached {

@@ -102,6 +102,10 @@ final class MenuBarViewModel: ObservableObject {
         Task.detached {
             await UsageHistoryStore.shared.record(successful, accounts: snapshotAccounts)
         }
+
+        // Fire low-quota notifications for anything that just crossed the
+        // user-configured threshold.
+        LowQuotaNotifier.shared.evaluate(usages: successful)
     }
 
     func launchAntigravity() {
