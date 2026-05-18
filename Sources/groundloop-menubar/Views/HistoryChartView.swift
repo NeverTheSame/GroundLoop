@@ -107,6 +107,7 @@ struct HistoryChartView: View {
                     .foregroundStyle(by: .value("Metric", point.metricLabel))
                     .symbolSize(36)
                 }
+                .chartXScale(domain: Date().addingTimeInterval(-range.interval)...Date())
                 .chartYScale(domain: 0...100)
                 .chartYAxis {
                     AxisMarks(values: [0, 25, 50, 75, 100]) { value in
