@@ -38,7 +38,7 @@ actor UsageHistoryStore {
     static let shared = UsageHistoryStore()
 
     private let retention: TimeInterval = 60 * 60 * 24 * 180   // 180 days
-    private let minSampleInterval: TimeInterval = 60 * 60      // 1 hour
+    private let minSampleInterval: TimeInterval = 5 * 60       // 5 minutes
 
     private var snapshots: [HistorySnapshot] = []
     private var loaded = false

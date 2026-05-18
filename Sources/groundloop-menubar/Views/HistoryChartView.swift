@@ -78,6 +78,10 @@ struct HistoryChartView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
             } else {
+                let countsByMetric = Dictionary(grouping: filtered, by: \.metricLabel)
+                    .mapValues(\.count)
+                let needMoreSamples = countsByMetric.values.allSatisfy { $0 < 2 }
+
                 Chart(filtered) { point in
                     LineMark(
                         x: .value("Date", point.capturedAt),
@@ -93,6 +97,15 @@ struct HistoryChartView: View {
                     .foregroundStyle(by: .value("Metric", point.metricLabel))
                     .opacity(0.12)
                     .interpolationMethod(.monotone)
+
+                    // Always render the dot so a single sample is visible —
+                    // LineMark/AreaMark draw nothing for a 1-point series.
+                    PointMark(
+                        x: .value("Date", point.capturedAt),
+                        y: .value("Used %", point.usedPercent)
+                    )
+                    .foregroundStyle(by: .value("Metric", point.metricLabel))
+                    .symbolSize(36)
                 }
                 .chartYScale(domain: 0...100)
                 .chartYAxis {
@@ -105,6 +118,12 @@ struct HistoryChartView: View {
                 }
                 .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
                 .frame(height: 220)
+
+                if needMoreSamples {
+                    Text("Only one sample so far — lines will appear once a second refresh records.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(16)
