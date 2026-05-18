@@ -4,6 +4,7 @@ import GroundLoop
 struct MenuBarContentView: View {
     var isDetachedWindow = false
     @EnvironmentObject var viewModel: MenuBarViewModel
+    @ObservedObject private var hiddenStore = HiddenMetricsStore.shared
     @AppStorage("menuBarHeight") private var menuBarHeight: Double = 400
     @State private var dragStartHeight: Double?
 
@@ -31,7 +32,7 @@ struct MenuBarContentView: View {
                     EmptyStateView()
                 } else {
                     let visibleAccounts = viewModel.accounts.filter {
-                        !HiddenMetricsStore.shared.isAccountHidden($0.id)
+                        !hiddenStore.isAccountHidden($0.id)
                     }
                     let hiddenAccountCount = viewModel.accounts.count - visibleAccounts.count
                     List {
@@ -46,7 +47,7 @@ struct MenuBarContentView: View {
                         }
                         if hiddenAccountCount > 0 {
                             Button {
-                                HiddenMetricsStore.shared.unhideAllAccounts()
+                                hiddenStore.unhideAllAccounts()
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "eye")
