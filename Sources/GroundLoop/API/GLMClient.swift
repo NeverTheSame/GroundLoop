@@ -86,10 +86,18 @@ public struct GLMClient: UsageClient {
             switch type {
             case "TOKENS_LIMIT":
                 let durationHours = limit["number"] as? Int ?? 5
+                let usedTokens = limit["currentValue"] as? Int
+                let tokenCap = limit["usage"] as? Int
+                let format: UsageFormat
+                if let used = usedTokens, let cap = tokenCap, cap > 0 {
+                    format = .count(used: used, limit: cap, suffix: "tokens")
+                } else {
+                    format = .percent
+                }
                 metrics.append(UsageMetric(
                     label: "Session",
                     usedPercent: percentage,
-                    format: .percent,
+                    format: format,
                     period: UsagePeriod(
                         label: "\(durationHours) hours",
                         resetsAt: resetsAt,

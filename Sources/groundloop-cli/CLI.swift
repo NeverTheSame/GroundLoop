@@ -112,14 +112,25 @@ extension Account {
                     if let plan = data.plan?.name {
                         log("   Plan: \(plan)")
                     }
-                    
+
                     if data.metrics.isEmpty {
                         log("   Usage: No data available")
                     } else {
                         for metric in data.metrics {
                             let bar = progressBar(percent: metric.usedPercent)
-                            log("   \(metric.label): \(bar) \(String(format: "%.0f%%", metric.usedPercent))")
+                            let pct = String(format: "%.0f%%", metric.usedPercent)
+                            let amount = formatAmount(metric.format)
+                            let reset = metric.period?.resetsAt.flatMap(formatReset)
+
+                            var line = "   \(metric.label): \(bar) \(pct)"
+                            if let amount { line += " (\(amount))" }
+                            if let reset { line += " · \(reset)" }
+                            log(line)
                         }
+                    }
+
+                    if let url = data.settingURL {
+                        log("   Manage: \(url.absoluteString)")
                     }
                 } catch CLIError.timeout {
                     log("   Usage: ⏱ Timeout")
@@ -128,9 +139,17 @@ extension Account {
                 }
                 log("")
             }
+
+            if service == nil && !accounts.contains(where: { $0.service == .glm }) {
+                log("💡 No Z.AI / GLM account configured. To track Z.AI limits:")
+                log("     swift run groundloop account add glm <ANTHROPIC_AUTH_TOKEN> Z.AI")
+                log("   or set ANTHROPIC_BASE_URL=https://api.z.ai and ANTHROPIC_AUTH_TOKEN")
+                log("   in ~/.claude/settings.json's env block, then re-run discover.")
+                log("")
+            }
         }
     }
-    
+
     struct Add: AsyncParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Manually add an account.")
         
@@ -270,6 +289,47 @@ func progressBar(percent: Double, width: Int = 20) -> String {
     
     let bar = "[" + String(repeating: "█", count: filled) + String(repeating: "░", count: empty) + "]"
     return "\(color)\(bar)\(reset)"
+}
+
+func formatAmount(_ format: UsageFormat) -> String? {
+    switch format {
+    case .percent:
+        return nil
+    case .dollars(let used, let limit):
+        return String(format: "$%.2f / $%.2f", used, limit)
+    case .count(let used, let limit, let suffix):
+        return "\(formatInt(used)) / \(formatInt(limit)) \(suffix)"
+    }
+}
+
+func formatInt(_ value: Int) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .decimal
+    return formatter.string(from: NSNumber(value: value)) ?? String(value)
+}
+
+func formatReset(_ date: Date) -> String {
+    let delta = date.timeIntervalSinceNow
+    if delta <= 0 { return "resets now" }
+
+    let totalMinutes = Int(delta / 60)
+    let days = totalMinutes / (60 * 24)
+    let hours = (totalMinutes % (60 * 24)) / 60
+    let minutes = totalMinutes % 60
+
+    if days >= 2 {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return "resets \(formatter.string(from: date))"
+    }
+    if days == 1 {
+        return "resets in 1d \(hours)h"
+    }
+    if hours >= 1 {
+        return "resets in \(hours)h \(minutes)m"
+    }
+    return "resets in \(minutes)m"
 }
 
 func shortError(_ error: Error) -> String {

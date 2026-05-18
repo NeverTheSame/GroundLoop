@@ -91,8 +91,11 @@ public struct ClaudeClient: UsageClient {
     
     private func parseDate(_ value: Any?) -> Date? {
         guard let str = value as? String else { return nil }
-        let formatter = ISO8601DateFormatter()
-        return formatter.date(from: str)
+        let withFractional = ISO8601DateFormatter()
+        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFractional.date(from: str) { return date }
+        let plain = ISO8601DateFormatter()
+        return plain.date(from: str)
     }
     
     /// Refresh an expired token
