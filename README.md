@@ -2,6 +2,20 @@
 
 Ground Loop is an all-in-one solution for managing and monitoring your LLM service accounts on macOS. It consists of a **Swift library**, a **CLI tool**, and a **macOS Menu Bar application**.
 
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/NeverTheSame/GroundLoop.git
+cd GroundLoop
+
+# Discover and import existing tokens from your apps
+swift run groundloop discover
+
+# View current usage and limits
+swift run groundloop account
+```
+
 ## Features
 
 - **Multi-token accounts** -- Store multiple tokens per service (personal, work, etc.)
