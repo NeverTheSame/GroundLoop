@@ -8,13 +8,18 @@ final class HiddenMetricsStore: ObservableObject {
     static let shared = HiddenMetricsStore()
 
     private let defaultsKey = "hiddenMetrics.v1"
+    private let hiddenAccountsKey = "hiddenAccounts.v1"
     private let defaults = UserDefaults.standard
 
     @Published private(set) var hidden: Set<String> = []
+    @Published private(set) var hiddenAccounts: Set<String> = []
 
     private init() {
         if let arr = defaults.array(forKey: defaultsKey) as? [String] {
             hidden = Set(arr)
+        }
+        if let arr = defaults.array(forKey: hiddenAccountsKey) as? [String] {
+            hiddenAccounts = Set(arr)
         }
     }
 
@@ -49,5 +54,30 @@ final class HiddenMetricsStore: ObservableObject {
 
     private func persist() {
         defaults.set(Array(hidden), forKey: defaultsKey)
+    }
+
+    // MARK: - Whole-account hiding
+
+    func isAccountHidden(_ accountID: UUID) -> Bool {
+        hiddenAccounts.contains(accountID.uuidString)
+    }
+
+    func hideAccount(_ accountID: UUID) {
+        hiddenAccounts.insert(accountID.uuidString)
+        persistAccounts()
+    }
+
+    func unhideAccount(_ accountID: UUID) {
+        hiddenAccounts.remove(accountID.uuidString)
+        persistAccounts()
+    }
+
+    func unhideAllAccounts() {
+        hiddenAccounts.removeAll()
+        persistAccounts()
+    }
+
+    private func persistAccounts() {
+        defaults.set(Array(hiddenAccounts), forKey: hiddenAccountsKey)
     }
 }

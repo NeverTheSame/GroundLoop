@@ -57,6 +57,15 @@ struct AccountRowView: View {
                 .help("Show 6-month history")
 
                 Button {
+                    hiddenStore.hideAccount(account.id)
+                } label: {
+                    Image(systemName: "eye.slash")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Hide this account")
+
+                Button {
                     Task { await viewModel.deleteAccount(account) }
                 } label: {
                     Image(systemName: "minus.circle")

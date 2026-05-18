@@ -30,8 +30,12 @@ struct MenuBarContentView: View {
                 if viewModel.accounts.isEmpty {
                     EmptyStateView()
                 } else {
+                    let visibleAccounts = viewModel.accounts.filter {
+                        !HiddenMetricsStore.shared.isAccountHidden($0.id)
+                    }
+                    let hiddenAccountCount = viewModel.accounts.count - visibleAccounts.count
                     List {
-                        ForEach(viewModel.accounts) { account in
+                        ForEach(visibleAccounts) { account in
                             AccountRowView(account: account)
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
@@ -39,6 +43,22 @@ struct MenuBarContentView: View {
                         }
                         .onMove { source, destination in
                             viewModel.moveAccounts(from: source, to: destination)
+                        }
+                        if hiddenAccountCount > 0 {
+                            Button {
+                                HiddenMetricsStore.shared.unhideAllAccounts()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "eye")
+                                    Text("\(hiddenAccountCount) account\(hiddenAccountCount == 1 ? "" : "s") hidden — show")
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                         }
                     }
                     .listStyle(.plain)
