@@ -36,6 +36,14 @@ class StatusBarController {
             }
             .store(in: &cancellables)
 
+        // Also re-render when the user toggles the "show %" preference.
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItemLabel()
+            }
+            .store(in: &cancellables)
+
         updateStatusItemLabel()
     }
 
@@ -60,7 +68,8 @@ class StatusBarController {
         }
 
         let remaining = max(0, 100 - mostUsed.usedPercent)
-        button.title = String(format: " %.0f%%", remaining)
+        let showLabel = UserDefaults.standard.object(forKey: "showRemainingPercent") as? Bool ?? true
+        button.title = showLabel ? String(format: " %.0f%%", remaining) : ""
         button.image = NSImage(
             systemSymbolName: gaugeSymbol(forUsedPercent: mostUsed.usedPercent),
             accessibilityDescription: "LLM Usage"
@@ -101,17 +110,32 @@ class StatusBarController {
 
     private func showContextMenu() {
         let menu = NSMenu()
-        
+
+        let prefsItem = NSMenuItem(title: "Preferences…", action: #selector(openPreferences), keyEquivalent: ",")
+        prefsItem.target = self
+        menu.addItem(prefsItem)
+
         let launchAtLoginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launchAtLoginItem.target = self
         launchAtLoginItem.state = viewModel.launchAtLogin ? .on : .off
         menu.addItem(launchAtLoginItem)
-        
+
         menu.addItem(NSMenuItem.separator())
-        
+
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        
-        statusItem.popUpMenu(menu)
+
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    @objc func openPreferences() {
+        NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 14, *) {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        } else {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
     }
 
     @objc func toggleLaunchAtLogin() {

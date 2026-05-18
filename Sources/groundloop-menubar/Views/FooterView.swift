@@ -16,11 +16,28 @@ struct FooterView: View {
 
             Spacer()
 
+            Button {
+                openPreferences()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.plain)
+            .help("Preferences")
+
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
             .font(.caption)
         }
         .padding(12)
+    }
+
+    private func openPreferences() {
+        NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 14, *) {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        } else {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
     }
 }

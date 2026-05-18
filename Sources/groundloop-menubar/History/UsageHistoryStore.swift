@@ -119,6 +119,12 @@ actor UsageHistoryStore {
         return snapshots.filter { $0.accountID == accountID }
     }
 
+    func clearAll() {
+        snapshots = []
+        loaded = true
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
     private static func encoder() -> JSONEncoder {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601

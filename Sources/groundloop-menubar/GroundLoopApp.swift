@@ -7,14 +7,19 @@ struct GroundLoopApp: App {
 
     var body: some Scene {
         Settings {
-            EmptyView()
+            if let viewModel = delegate.viewModel {
+                PreferencesView()
+                    .environmentObject(viewModel)
+            } else {
+                EmptyView()
+            }
         }
     }
 }
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var viewModel: MenuBarViewModel!
+    var viewModel: MenuBarViewModel!
     private var statusBarController: StatusBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {

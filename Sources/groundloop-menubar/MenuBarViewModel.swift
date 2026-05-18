@@ -26,6 +26,12 @@ final class MenuBarViewModel: ObservableObject {
         }
     }
 
+    @AppStorage("refreshIntervalSeconds") var refreshIntervalSeconds: Int = 300 {
+        didSet {
+            startAutoRefresh()
+        }
+    }
+
     // Add-account form state
     @Published var addService: LLMService = .claude
     @Published var addToken: String = ""
@@ -247,10 +253,18 @@ final class MenuBarViewModel: ObservableObject {
     // MARK: - Auto-refresh
 
     private func startAutoRefresh() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        refreshTimer?.invalidate()
+        let interval = max(60, TimeInterval(refreshIntervalSeconds))
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await self?.refreshUsage()
             }
+        }
+    }
+
+    func clearHistory() {
+        Task.detached {
+            await UsageHistoryStore.shared.clearAll()
         }
     }
 
