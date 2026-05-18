@@ -27,7 +27,37 @@ struct MetricRowView: View {
                 }
             }
             .frame(height: 6)
+
+            if let resetsAt = metric.period?.resetsAt {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(resetCountdown(from: context.date, to: resetsAt))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
+    }
+
+    private func resetCountdown(from now: Date, to resetsAt: Date) -> String {
+        let interval = resetsAt.timeIntervalSince(now)
+        if interval <= 0 {
+            return "Resets now"
+        }
+
+        let totalMinutes = Int(interval / 60)
+        let days = totalMinutes / (60 * 24)
+        let hours = (totalMinutes % (60 * 24)) / 60
+        let minutes = totalMinutes % 60
+
+        let parts: String
+        if days > 0 {
+            parts = "\(days)d \(hours)h"
+        } else if hours > 0 {
+            parts = "\(hours)h \(minutes)m"
+        } else {
+            parts = "\(max(minutes, 1))m"
+        }
+        return "Resets in \(parts)"
     }
 
     private var formattedValue: String {
