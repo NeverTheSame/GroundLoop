@@ -91,10 +91,16 @@ public struct ClaudeClient: UsageClient {
     
     private func parseDate(_ value: Any?) -> Date? {
         guard let str = value as? String else { return nil }
+        // Anthropic returns timestamps both with and without fractional seconds
+        // (e.g. "2025-05-18T03:00:00Z" and "2025-05-18T03:00:00.123456Z").
+        // The default ISO8601DateFormatter rejects fractional seconds, so try
+        // both option sets before giving up.
         let withFractional = ISO8601DateFormatter()
         withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let date = withFractional.date(from: str) { return date }
+
         let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
         return plain.date(from: str)
     }
     
