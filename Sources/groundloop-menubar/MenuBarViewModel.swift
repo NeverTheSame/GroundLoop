@@ -18,6 +18,7 @@ final class MenuBarViewModel: ObservableObject {
     @Published var showAddForm = false
     @Published var isDetached = false
     @Published var lastRefreshed: Date?
+    @Published var historyAccount: LLMAccount?
 
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false {
         didSet {
@@ -87,6 +88,14 @@ final class MenuBarViewModel: ObservableObject {
             }
         }
         lastRefreshed = Date()
+
+        // Persist a snapshot per metric (rate-limited inside the store) so
+        // the 6-month history chart has data to draw.
+        let successful = Array(usageByAccountID.values)
+        let snapshotAccounts = accounts
+        Task.detached {
+            await UsageHistoryStore.shared.record(successful, accounts: snapshotAccounts)
+        }
     }
 
     func launchAntigravity() {

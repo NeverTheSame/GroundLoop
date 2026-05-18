@@ -73,6 +73,11 @@ struct MenuBarContentView: View {
             }
             .frame(width: 340)
             .frame(height: isDetachedWindow ? nil : menuBarHeight)
+            .sheet(item: $viewModel.historyAccount) { account in
+                HistoryChartView(account: account) {
+                    viewModel.historyAccount = nil
+                }
+            }
             .background {
                 if isDetachedWindow {
                     // Fallback: classic translucent material using NSVisualEffectView

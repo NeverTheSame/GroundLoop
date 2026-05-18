@@ -47,6 +47,15 @@ struct AccountRowView: View {
                 }
 
                 Button {
+                    viewModel.historyAccount = account
+                } label: {
+                    Image(systemName: "chart.xyaxis.line")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Show 6-month history")
+
+                Button {
                     Task { await viewModel.deleteAccount(account) }
                 } label: {
                     Image(systemName: "minus.circle")
