@@ -1,11 +1,14 @@
 import AppKit
 import SwiftUI
+import Combine
+import GroundLoop
 
 @MainActor
 class StatusBarController {
     private var statusItem: NSStatusItem
     private var popover: NSPopover
     private var viewModel: MenuBarViewModel
+    private var cancellables = Set<AnyCancellable>()
 
     init(_ viewModel: MenuBarViewModel) {
         self.viewModel = viewModel
@@ -15,13 +18,60 @@ class StatusBarController {
         self.popover.contentViewController = NSHostingController(rootView: MenuBarContentView().environmentObject(viewModel))
 
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        
+
         if let button = self.statusItem.button {
             button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "LLM Usage")
+            button.imagePosition = .imageLeading
             button.action = #selector(handleAction(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
+
+        // Refresh menu bar label whenever usage data or refresh state changes.
+        viewModel.$usageByAccountID
+            .combineLatest(viewModel.$isRefreshing, viewModel.$accounts)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _, _ in
+                self?.updateStatusItemLabel()
+            }
+            .store(in: &cancellables)
+
+        updateStatusItemLabel()
+    }
+
+    /// Show the most-constrained quota (highest used %) across all active accounts,
+    /// so the menu bar functions as a glanceable "lowest remaining" indicator.
+    private func updateStatusItemLabel() {
+        guard let button = statusItem.button else { return }
+
+        let activeIDs = Set(viewModel.accounts.filter { $0.isActive }.map { $0.id })
+        let metrics = viewModel.usageByAccountID
+            .filter { activeIDs.contains($0.key) }
+            .values
+            .flatMap { $0.metrics }
+
+        guard let mostUsed = metrics.max(by: { $0.usedPercent < $1.usedPercent }) else {
+            button.title = ""
+            button.image = NSImage(
+                systemSymbolName: "gauge.medium",
+                accessibilityDescription: "LLM Usage"
+            )
+            return
+        }
+
+        let remaining = max(0, 100 - mostUsed.usedPercent)
+        button.title = String(format: " %.0f%%", remaining)
+        button.image = NSImage(
+            systemSymbolName: gaugeSymbol(forUsedPercent: mostUsed.usedPercent),
+            accessibilityDescription: "LLM Usage"
+        )
+        button.toolTip = "\(mostUsed.label): \(Int(remaining.rounded()))% remaining"
+    }
+
+    private func gaugeSymbol(forUsedPercent used: Double) -> String {
+        if used >= 90 { return "gauge.high" }
+        if used >= 60 { return "gauge.medium" }
+        return "gauge.low"
     }
 
     @objc func handleAction(_ sender: Any?) {
