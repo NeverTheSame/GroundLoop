@@ -12,15 +12,39 @@ struct AccountRowView: View {
     @State private var isEditingLabel = false
     @State private var tempLabel = ""
     @ObservedObject private var hiddenStore = HiddenMetricsStore.shared
+    @AppStorage("defaultAccountID") private var defaultAccountIDString: String?
+
+    private var defaultAccountID: UUID? {
+        guard let string = defaultAccountIDString else { return nil }
+        return UUID(uuidString: string)
+    }
+
+    private var isDefault: Bool { defaultAccountID == account.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                ServiceIconView(service: account.service)
+                ZStack(alignment: .topLeading) {
+                    ServiceIconView(service: account.service)
+
+                    if isDefault {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundColor(.yellow)
+                            .offset(x: 12, y: -4)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(account.service.displayName)
-                        .font(.subheadline).bold()
+                    HStack(spacing: 4) {
+                        Text(account.service.displayName)
+                            .font(.subheadline).bold()
+                        if isDefault {
+                            Text("Default")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     Text(account.label)
                         .font(.caption).foregroundColor(.secondary)
                 }
@@ -55,6 +79,15 @@ struct AccountRowView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Show 6-month history")
+
+                Button {
+                    defaultAccountIDString = isDefault ? nil : account.id.uuidString
+                } label: {
+                    Image(systemName: isDefault ? "star.fill" : "star")
+                        .foregroundColor(isDefault ? .yellow : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(isDefault ? "Remove as default" : "Make default for menubar")
 
                 Button {
                     hiddenStore.hideAccount(account.id)

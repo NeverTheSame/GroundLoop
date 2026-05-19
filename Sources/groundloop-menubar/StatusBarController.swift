@@ -56,20 +56,32 @@ class StatusBarController {
         let accountMetrics = viewModel.usageByAccountID
             .filter { activeIDs.contains($0.key) }
 
-        guard let (accountID, mostUsedData) = accountMetrics.max(by: {
+        // Check for default account first
+        var targetAccountID: UUID?
+        var mostUsedData: UsageData?
+        var mostUsedMetric: UsageMetric?
+
+        if let defaultID = UserDefaults.standard.string(forKey: "defaultAccountID"),
+           let uuid = UUID(uuidString: defaultID),
+           let defaultData = accountMetrics[uuid] {
+            // Use default account
+            targetAccountID = uuid
+            mostUsedData = defaultData
+            mostUsedMetric = defaultData.metrics.max(by: { $0.usedPercent < $1.usedPercent })
+        } else if let (accountID, data) = accountMetrics.max(by: {
             let max1 = $0.value.metrics.map(\.usedPercent).max() ?? 0
             let max2 = $1.value.metrics.map(\.usedPercent).max() ?? 0
             return max1 < max2
-        }) else {
-            button.title = ""
-            button.image = NSImage(
-                systemSymbolName: "gauge.medium",
-                accessibilityDescription: "LLM Usage"
-            )
-            return
+        }) {
+            // Fall back to most-constrained account
+            targetAccountID = accountID
+            mostUsedData = data
+            mostUsedMetric = data.metrics.max(by: { $0.usedPercent < $1.usedPercent })
         }
 
-        guard let mostUsed = mostUsedData.metrics.max(by: { $0.usedPercent < $1.usedPercent }) else {
+        guard let accountID = targetAccountID,
+              let data = mostUsedData,
+              let mostUsed = mostUsedMetric else {
             button.title = ""
             button.image = NSImage(
                 systemSymbolName: "gauge.medium",
@@ -92,7 +104,7 @@ class StatusBarController {
                 accessibilityDescription: "LLM Usage"
             )
         }
-        button.toolTip = "\(mostUsedData.account.service.displayName): \(mostUsed.label) — \(Int(remaining.rounded()))% remaining"
+        button.toolTip = "\(data.account.service.displayName): \(mostUsed.label) — \(Int(remaining.rounded()))% remaining"
     }
 
     /// Returns the service logo as an NSImage, or nil if not available.
