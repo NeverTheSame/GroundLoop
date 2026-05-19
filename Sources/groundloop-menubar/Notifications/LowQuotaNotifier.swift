@@ -10,7 +10,7 @@ import GroundLoop
 final class LowQuotaNotifier {
     static let shared = LowQuotaNotifier()
 
-    private let center = UNUserNotificationCenter.current()
+    private lazy var center = UNUserNotificationCenter.current()
     private var didRequestAuthorization = false
     private let alertedKeyPrefix = "lowQuotaAlert."
 
