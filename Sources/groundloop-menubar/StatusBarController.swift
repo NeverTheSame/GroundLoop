@@ -53,12 +53,23 @@ class StatusBarController {
         guard let button = statusItem.button else { return }
 
         let activeIDs = Set(viewModel.accounts.filter { $0.isActive }.map { $0.id })
-        let metrics = viewModel.usageByAccountID
+        let accountMetrics = viewModel.usageByAccountID
             .filter { activeIDs.contains($0.key) }
-            .values
-            .flatMap { $0.metrics }
 
-        guard let mostUsed = metrics.max(by: { $0.usedPercent < $1.usedPercent }) else {
+        guard let (accountID, mostUsedData) = accountMetrics.max(by: {
+            let max1 = $0.value.metrics.map(\.usedPercent).max() ?? 0
+            let max2 = $1.value.metrics.map(\.usedPercent).max() ?? 0
+            return max1 < max2
+        }) else {
+            button.title = ""
+            button.image = NSImage(
+                systemSymbolName: "gauge.medium",
+                accessibilityDescription: "LLM Usage"
+            )
+            return
+        }
+
+        guard let mostUsed = mostUsedData.metrics.max(by: { $0.usedPercent < $1.usedPercent }) else {
             button.title = ""
             button.image = NSImage(
                 systemSymbolName: "gauge.medium",
@@ -70,11 +81,29 @@ class StatusBarController {
         let remaining = max(0, 100 - mostUsed.usedPercent)
         let showLabel = UserDefaults.standard.object(forKey: "showRemainingPercent") as? Bool ?? true
         button.title = showLabel ? String(format: " %.0f%%", remaining) : ""
-        button.image = NSImage(
-            systemSymbolName: gaugeSymbol(forUsedPercent: mostUsed.usedPercent),
-            accessibilityDescription: "LLM Usage"
-        )
-        button.toolTip = "\(mostUsed.label): \(Int(remaining.rounded()))% remaining"
+
+        // Use service icon instead of gauge
+        if let account = viewModel.accounts.first(where: { $0.id == accountID }),
+           let icon = serviceIconImage(for: account.service) {
+            button.image = icon
+        } else {
+            button.image = NSImage(
+                systemSymbolName: gaugeSymbol(forUsedPercent: mostUsed.usedPercent),
+                accessibilityDescription: "LLM Usage"
+            )
+        }
+        button.toolTip = "\(mostUsedData.account.service.displayName): \(mostUsed.label) — \(Int(remaining.rounded()))% remaining"
+    }
+
+    /// Returns the service logo as an NSImage, or nil if not available.
+    private func serviceIconImage(for service: LLMService) -> NSImage? {
+        guard let logoName = serviceLogoName(for: service) else { return nil }
+        guard let url = Bundle.module.url(
+            forResource: logoName, withExtension: "svg", subdirectory: "ServiceLogos"
+        ) else { return nil }
+        guard let image = NSImage(contentsOf: url) else { return nil }
+        image.isTemplate = true
+        return image
     }
 
     private func gaugeSymbol(forUsedPercent used: Double) -> String {
