@@ -83,45 +83,83 @@ class StatusBarController {
               let data = mostUsedData,
               let mostUsed = mostUsedMetric else {
             button.title = ""
-            button.image = NSImage(
-                systemSymbolName: "gauge.medium",
-                accessibilityDescription: "LLM Usage"
-            )
+            button.contentTintColor = nil
+            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "LLM Usage")
             return
         }
 
         let remaining = max(0, 100 - mostUsed.usedPercent)
         let showLabel = UserDefaults.standard.object(forKey: "showRemainingPercent") as? Bool ?? true
-        button.title = showLabel ? String(format: " %.0f%%", remaining) : ""
+        let account = viewModel.accounts.first(where: { $0.id == accountID })
 
-        // Use service icon instead of gauge
-        if let account = viewModel.accounts.first(where: { $0.id == accountID }),
-           let icon = serviceIconImage(for: account.service) {
-            button.image = icon
-        } else {
-            button.image = NSImage(
-                systemSymbolName: gaugeSymbol(forUsedPercent: mostUsed.usedPercent),
-                accessibilityDescription: "LLM Usage"
-            )
-        }
+        button.title = ""
+        button.contentTintColor = nil
+        button.image = makeStatusBarImage(service: account?.service, remaining: remaining, showLabel: showLabel)
         button.toolTip = "\(data.account.service.displayName): \(mostUsed.label) — \(Int(remaining.rounded()))% remaining"
     }
 
-    /// Returns the service logo as an NSImage, or nil if not available.
-    private func serviceIconImage(for service: LLMService) -> NSImage? {
-        guard let logoName = serviceLogoName(for: service) else { return nil }
-        guard let url = Bundle.module.url(
-            forResource: logoName, withExtension: "svg", subdirectory: "ServiceLogos"
-        ) else { return nil }
-        guard let image = NSImage(contentsOf: url) else { return nil }
-        image.isTemplate = true
-        return image
+    /// Returns an NSColor for the menu bar indicator based on remaining quota.
+    /// Green > 60%, Yellow 20–60%, Red < 20%.
+    private func usageColor(remainingPercent: Double) -> NSColor {
+        if remainingPercent > 60 { return .systemGreen }
+        if remainingPercent > 20 { return .systemYellow }
+        return .systemRed
     }
 
-    private func gaugeSymbol(forUsedPercent used: Double) -> String {
-        if used >= 90 { return "gauge.high" }
-        if used >= 60 { return "gauge.medium" }
-        return "gauge.low"
+    /// Draws the service icon (tinted with the usage colour) and percentage label
+    /// into a single non-template NSImage, bypassing AppKit's template recolour pass.
+    private func makeStatusBarImage(
+        service: LLMService?,
+        remaining: Double,
+        showLabel: Bool
+    ) -> NSImage {
+        let color = usageColor(remainingPercent: remaining)
+        let labelText = showLabel ? String(format: " %.0f%%", remaining) : ""
+        let font = NSFont.menuBarFont(ofSize: 0)
+        let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+
+        let iconSize: CGFloat = 16
+        let textSize = labelText.isEmpty ? .zero : labelText.size(withAttributes: textAttrs)
+        let totalWidth = iconSize + textSize.width
+        let barHeight = NSStatusBar.system.thickness
+
+        let image = NSImage(
+            size: NSSize(width: max(totalWidth, iconSize), height: barHeight),
+            flipped: false
+        ) { _ in
+            let iconRect = NSRect(
+                x: 0,
+                y: (barHeight - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+
+            // Load service SVG, draw it, then composite the usage colour on top.
+            if let svc = service,
+               let logoName = serviceLogoName(for: svc),
+               let url = Bundle.module.url(
+                   forResource: logoName, withExtension: "svg", subdirectory: "ServiceLogos"),
+               let logo = NSImage(contentsOf: url) {
+                logo.draw(in: iconRect)
+                color.setFill()
+                iconRect.fill(using: .sourceAtop)
+            } else {
+                // Fallback SF symbol
+                if let fallback = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: nil) {
+                    fallback.draw(in: iconRect)
+                    color.setFill()
+                    iconRect.fill(using: .sourceAtop)
+                }
+            }
+
+            if !labelText.isEmpty {
+                let textY = (barHeight - textSize.height) / 2
+                labelText.draw(at: NSPoint(x: iconSize, y: textY), withAttributes: textAttrs)
+            }
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     @objc func handleAction(_ sender: Any?) {
