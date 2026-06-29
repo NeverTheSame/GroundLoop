@@ -33,11 +33,60 @@ Monitor your LLM usage directly from your macOS menu bar. The app provides real-
 - Auto-refresh and manual refresh support.
 - One-click token discovery.
 - Detachable window for persistent monitoring.
+- **Launch at login** - Start GroundLoop automatically when you log in.
 
-To run the menu bar app from source:
+### Installation & Launch-at-Login
+
+**Important**: The launch-at-login feature only works when GroundLoop is installed as a proper macOS app bundle (.app), not when running via `swift run`.
+
+**Quick Setup (Recommended):**
+```bash
+# One command to build, install, and launch GroundLoop
+./Scripts/setup-launch-at-login.sh
+```
+
+### No more repeating keychain prompts
+
+GroundLoop reads your Claude/Copilot tokens from the macOS Keychain. macOS pins
+the requesting app's **code signature** when you click **"Always Allow"** — but an
+ad-hoc signature (the default) changes on every build, so the prompt keeps coming
+back after each reinstall.
+
+The fix is a one-time, self-signed signing identity. After this, a single
+"Always Allow" sticks **permanently** across rebuilds:
+
+```bash
+# 1. Create the stable signing identity (asks for your Mac password once)
+./Scripts/create-signing-cert.sh
+
+# 2. Build + install + launch (now signed with that stable identity)
+./Scripts/install-menubar.sh
+```
+
+When the keychain dialog appears after launch, click **"Always Allow"** once — and
+you're done for good. `install-menubar.sh` auto-creates the identity if you skip
+step 1, and you can override it with `CODESIGN_IDENTITY="Developer ID Application: …"`.
+
+**Manual Setup:**
+```bash
+# Build the .app bundle
+./Scripts/bundle-menubar.sh
+
+# Install to /Applications
+./Scripts/install-menubar.sh
+```
+
+**Enable Launch-at-Login:**
+Once installed, you can enable launch-at-login via:
+- Right-click the menubar icon → "Launch at Login"
+- Preferences → General → "Launch at login"
+
+**Development Mode:**
+To run from source without installing:
 ```bash
 swift run groundloop-menubar
 ```
+Note: Launch-at-login won't work in development mode.
 
 ## CLI Tool
 

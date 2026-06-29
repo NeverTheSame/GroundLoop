@@ -5,6 +5,14 @@ public protocol UsageClient: Sendable {
     var service: LLMService { get }
     func fetchUsage(account: LLMAccount) async throws -> UsageData
     var settingURL: URL? { get }
+    /// Renew an expiring/expired token using its own refresh token, without
+    /// re-reading the originating app's keychain item. Returns nil if this
+    /// client can't refresh (no refresh token, or the grant was rejected).
+    func refreshToken(_ token: TokenInfo) async throws -> TokenInfo?
+}
+
+public extension UsageClient {
+    func refreshToken(_ token: TokenInfo) async throws -> TokenInfo? { nil }
 }
 
 /// Errors from usage API calls

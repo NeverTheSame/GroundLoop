@@ -25,7 +25,19 @@ struct PreferencesView: View {
 
     private var generalTab: some View {
         Form {
-            Toggle("Launch at login", isOn: $viewModel.launchAtLogin)
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Launch at login", isOn: $viewModel.launchAtLogin)
+
+                if let errorMessage = viewModel.launchAtLoginErrorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
+                Text("GroundLoop will start automatically when you log in.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             Picker("Refresh every", selection: $viewModel.refreshIntervalSeconds) {
                 Text("1 minute").tag(60)

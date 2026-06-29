@@ -19,6 +19,7 @@ final class MenuBarViewModel: ObservableObject {
     @Published var isDetached = false
     @Published var lastRefreshed: Date?
     @Published var historyAccount: LLMAccount?
+    @Published var launchAtLoginErrorMessage: String?
 
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false {
         didSet {
@@ -274,10 +275,21 @@ final class MenuBarViewModel: ObservableObject {
 
     private func updateLaunchAtLogin() {
         let service = SMAppService.mainApp
-        if launchAtLogin {
-            try? service.register()
-        } else {
-            try? service.unregister()
+        do {
+            if launchAtLogin {
+                try service.register()
+                print("✅ Launch at login enabled")
+            } else {
+                try service.unregister()
+                print("✅ Launch at login disabled")
+            }
+            launchAtLoginErrorMessage = nil
+        } catch {
+            let errorMessage = "Failed to \(launchAtLogin ? "enable" : "disable") launch at login: \(error.localizedDescription)"
+            print("❌ \(errorMessage)")
+            launchAtLoginErrorMessage = errorMessage
+            // Revert the state since the operation failed
+            launchAtLogin = !launchAtLogin
         }
     }
 

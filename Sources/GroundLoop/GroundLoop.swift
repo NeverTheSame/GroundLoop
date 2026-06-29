@@ -124,11 +124,36 @@ public actor GroundLoop {
         guard let client = clients[account.service] else {
             throw GroundLoopError.noClientForService(account.service)
         }
-        
+
+        var account = account
+
+        // Claude access tokens expire every few hours. Renew them via the
+        // OAuth refresh-token grant (a plain HTTPS call, no keychain access)
+        // BEFORE hitting the API, so the background refresh never re-reads
+        // Claude Code's keychain item — that cross-app read is what triggered
+        // the recurring macOS password prompt.
+        //
+        // Note: `primaryToken` hides expired tokens, so refresh off the raw
+        // first token slot instead.
+        if account.service == .claude,
+           let token = account.tokens.first, token.needsRefresh,
+           let refreshed = await refreshClaudeToken(accountID: account.id, client: client, token: token) {
+            account = refreshed
+        }
+
         do {
             return try await client.fetchUsage(account: account)
         } catch {
-            if account.service == .claude, isNoTokenError(error) {
+            if account.service == .claude, isTokenError(error) {
+                // The token was rejected mid-flight. Try one more OAuth refresh
+                // (still no keychain access).
+                if let token = account.tokens.first,
+                   let refreshed = await refreshClaudeToken(accountID: account.id, client: client, token: token) {
+                    return try await client.fetchUsage(account: refreshed)
+                }
+                // Last resort only: the stored refresh token was rejected
+                // (e.g. Claude Code rotated it). Re-read its keychain item —
+                // this is the ONLY remaining path that can show the OS prompt.
                 if let updatedAccount = try await rediscoverAndReplaceClaudeToken(accountID: account.id) {
                     return try await client.fetchUsage(account: updatedAccount)
                 }
@@ -145,12 +170,41 @@ public actor GroundLoop {
         }
     }
 
-    private func isNoTokenError(_ error: Error) -> Bool {
-        guard let usageError = error as? UsageClientError else { return false }
-        if case .noToken = usageError {
-            return true
+    /// Renew a Claude token via the OAuth refresh-token grant and persist the
+    /// new values, WITHOUT reading Claude Code's keychain. Returns the updated
+    /// account, or nil if there's no refresh token or the grant was rejected.
+    private func refreshClaudeToken(
+        accountID: UUID,
+        client: any UsageClient,
+        token: TokenInfo
+    ) async -> LLMAccount? {
+        guard let refreshed = try? await client.refreshToken(token),
+              let idx = accounts.firstIndex(where: { $0.id == accountID }) else {
+            return nil
         }
-        return false
+
+        var updated = accounts[idx]
+        if updated.tokens.isEmpty {
+            updated.tokens = [refreshed]
+        } else {
+            updated.tokens[0].accessToken = refreshed.accessToken
+            updated.tokens[0].refreshToken = refreshed.refreshToken
+            updated.tokens[0].expiresAt = refreshed.expiresAt
+        }
+        updated.updatedAt = Date()
+        accounts[idx] = updated
+        try? await storage.saveAccounts(accounts)
+        return updated
+    }
+
+    private func isTokenError(_ error: Error) -> Bool {
+        guard let usageError = error as? UsageClientError else { return false }
+        switch usageError {
+        case .noToken, .tokenExpired, .unauthorized:
+            return true
+        default:
+            return false
+        }
     }
 
     /// Claude can rotate token values while account identity stays the same.

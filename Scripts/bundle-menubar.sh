@@ -21,7 +21,22 @@ APP_NAME="GroundLoop.app"
 BUILD_DIR=".build"
 APP_DIR="$BUILD_DIR/$APP_NAME"
 CONTENTS="$APP_DIR/Contents"
-IDENTITY="${CODESIGN_IDENTITY:--}"
+
+# Prefer the stable self-signed GroundLoop identity if it exists, so that a
+# single "Always Allow" on the keychain prompt survives every future rebuild.
+# Falls back to ad-hoc ("-") only if the cert was never created.
+STABLE_CERT="GroundLoop Code Signing"
+if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+    IDENTITY="$CODESIGN_IDENTITY"
+elif security find-certificate -c "$STABLE_CERT" \
+        "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1; then
+    IDENTITY="$STABLE_CERT"
+else
+    echo "warning: no stable signing identity found — using ad-hoc signature." >&2
+    echo "         The keychain prompt will keep returning after each rebuild." >&2
+    echo "         Run ./Scripts/create-signing-cert.sh once to fix this." >&2
+    IDENTITY="-"
+fi
 
 echo "==> Building $PRODUCT (release)..."
 swift build -c release --product "$PRODUCT"
