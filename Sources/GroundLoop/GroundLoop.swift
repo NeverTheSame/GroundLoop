@@ -6,7 +6,14 @@ public actor GroundLoop {
     private let discovery: TokenDiscoveryCoordinator
     private var accounts: [LLMAccount] = []
     private var clients: [LLMService: any UsageClient] = [:]
-    
+
+    /// Reading Claude Code's keychain item is the only thing this app does that
+    /// can raise a macOS password prompt, and the 5-minute refresh cycle will
+    /// otherwise retry it forever once the OAuth refresh grant starts failing.
+    /// Cap the damage: a failed re-read waits this long before trying again.
+    private var lastClaudeKeychainRead: Date?
+    private let claudeKeychainReadInterval: TimeInterval = 60 * 60
+
     public init(storage: AccountStorage? = nil) {
         self.storage = storage ?? KeychainStorage()
         self.discovery = TokenDiscoveryCoordinator()
@@ -154,7 +161,7 @@ public actor GroundLoop {
                 // Last resort only: the stored refresh token was rejected
                 // (e.g. Claude Code rotated it). Re-read its keychain item —
                 // this is the ONLY remaining path that can show the OS prompt.
-                if let updatedAccount = try await rediscoverAndReplaceClaudeToken(accountID: account.id) {
+                if let updatedAccount = try await throttledRediscoverClaudeToken(accountID: account.id) {
                     return try await client.fetchUsage(account: updatedAccount)
                 }
             }
@@ -205,6 +212,18 @@ public actor GroundLoop {
         default:
             return false
         }
+    }
+
+    /// Re-read Claude Code's keychain item, but at most once per
+    /// `claudeKeychainReadInterval`. Returns nil when throttled, which surfaces
+    /// the underlying token error in the UI rather than prompting again.
+    private func throttledRediscoverClaudeToken(accountID: UUID) async throws -> LLMAccount? {
+        if let last = lastClaudeKeychainRead,
+           Date().timeIntervalSince(last) < claudeKeychainReadInterval {
+            return nil
+        }
+        lastClaudeKeychainRead = Date()
+        return try await rediscoverAndReplaceClaudeToken(accountID: accountID)
     }
 
     /// Claude can rotate token values while account identity stays the same.

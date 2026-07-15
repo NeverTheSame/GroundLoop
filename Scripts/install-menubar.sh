@@ -46,9 +46,12 @@ rm -rf "$DEST"
 cp -R ".build/$APP_NAME" "$DEST"
 
 # Re-sign in place: copying can strip extended attributes on some setups.
-codesign --force --deep --options runtime \
-    --sign "$RESIGN_IDENTITY" \
-    "$DEST" >/dev/null 2>&1 || true
+if ! RESIGN_ERR="$(codesign --force --deep --options runtime \
+        --sign "$RESIGN_IDENTITY" \
+        "$DEST" 2>&1)"; then
+    echo "warning: re-sign failed — keychain prompts may return:" >&2
+    echo "$RESIGN_ERR" >&2
+fi
 
 echo "==> Launching $APP_NAME..."
 open "$DEST"

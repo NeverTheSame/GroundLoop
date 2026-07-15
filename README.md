@@ -82,11 +82,23 @@ Once installed, you can enable launch-at-login via:
 - Preferences → General → "Launch at login"
 
 **Development Mode:**
-To run from source without installing:
+To run from source without installing, use the dev-run script — it signs
+the binary with the same stable identity as the installed app, so it
+inherits your existing "Always Allow" grant and won't re-prompt on every
+rebuild:
 ```bash
-swift run groundloop-menubar
+./Scripts/dev-run.sh              # debug build, sign, launch
+./Scripts/dev-run.sh --release    # release build, sign, launch
 ```
-Note: Launch-at-login won't work in development mode.
+Plain `swift run groundloop-menubar` / `swift build` still produce an
+ad-hoc signature that changes every build, so they will keep re-prompting
+for the Keychain — use `dev-run.sh` instead for iterative development.
+
+Note: Launch-at-login (SMAppService) still requires a proper installed
+`.app` bundle — it doesn't apply to `dev-run.sh` or `swift run`. Also,
+since `dev-run.sh` runs a loose binary (not a `.app`), you'll see a Dock
+icon during dev; this is cosmetic and matches existing `swift run`
+behavior.
 
 ## CLI Tool
 
