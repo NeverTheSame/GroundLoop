@@ -67,7 +67,7 @@ class StatusBarController {
             // Use default account
             targetAccountID = uuid
             mostUsedData = defaultData
-            mostUsedMetric = defaultData.metrics.max(by: { $0.usedPercent < $1.usedPercent })
+            mostUsedMetric = primaryMetric(in: defaultData)
         } else if let (accountID, data) = accountMetrics.max(by: {
             let max1 = $0.value.metrics.map(\.usedPercent).max() ?? 0
             let max2 = $1.value.metrics.map(\.usedPercent).max() ?? 0
@@ -76,7 +76,7 @@ class StatusBarController {
             // Fall back to most-constrained account
             targetAccountID = accountID
             mostUsedData = data
-            mostUsedMetric = data.metrics.max(by: { $0.usedPercent < $1.usedPercent })
+            mostUsedMetric = primaryMetric(in: data)
         }
 
         guard let accountID = targetAccountID,
@@ -96,6 +96,17 @@ class StatusBarController {
         button.contentTintColor = nil
         button.image = makeStatusBarImage(service: account?.service, remaining: remaining, showLabel: showLabel)
         button.toolTip = "\(data.account.service.displayName): \(mostUsed.label) — \(Int(remaining.rounded()))% remaining"
+    }
+
+    /// Picks the metric that drives the menu bar badge. "Session" (the
+    /// short rolling window — 5h for Claude/Codex/GLM) is what users
+    /// actually watch minute-to-minute, so it takes priority over longer,
+    /// less urgent quotas like GLM's monthly MCP call budget. Falls back to
+    /// the most-used metric for services with no "Session" metric at all
+    /// (Copilot, Cursor, OpenRouter, ...).
+    private func primaryMetric(in data: UsageData) -> UsageMetric? {
+        data.metrics.first(where: { $0.label == "Session" })
+            ?? data.metrics.max(by: { $0.usedPercent < $1.usedPercent })
     }
 
     /// Returns an NSColor for the menu bar indicator based on remaining quota.

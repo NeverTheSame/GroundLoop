@@ -35,7 +35,11 @@ public struct ClaudeClient: UsageClient {
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
             throw UsageClientError.tokenExpired
         }
-        
+
+        if httpResponse.statusCode == 429 {
+            throw UsageClientError.rateLimited(retryAfter: retryAfterSeconds(from: httpResponse))
+        }
+
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw UsageClientError.httpError(httpResponse.statusCode)
         }
@@ -43,7 +47,7 @@ public struct ClaudeClient: UsageClient {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw UsageClientError.invalidResponse
         }
-        
+
         return parseUsage(json: json, account: account)
     }
     
@@ -74,21 +78,48 @@ public struct ClaudeClient: UsageClient {
             ))
         }
         
-        // Sonnet quota
-        if let sonnet = json["seven_day_sonnet"] as? [String: Any],
-           let utilization = sonnet["utilization"] as? Double {
-            let resetsAt = parseDate(sonnet["resets_at"])
-            metrics.append(UsageMetric(
-                label: "Sonnet",
-                usedPercent: utilization,
-                format: .percent,
-                period: UsagePeriod(label: "7 days", resetsAt: resetsAt, durationMs: 7 * 24 * 60 * 60 * 1000)
-            ))
+        // Per-model weekly quotas (e.g. "Fable") aren't in fixed-name fields
+        // like `seven_day_sonnet` — those are always null. The API reports
+        // them through the generic `limits` array as `weekly_scoped` entries.
+        if let limits = json["limits"] as? [[String: Any]] {
+            for limit in limits {
+                guard limit["kind"] as? String == "weekly_scoped",
+                      let percent = limit["percent"] as? Double,
+                      let scope = limit["scope"] as? [String: Any],
+                      let model = scope["model"] as? [String: Any],
+                      let displayName = model["display_name"] as? String else {
+                    continue
+                }
+                let resetsAt = parseDate(limit["resets_at"])
+                metrics.append(UsageMetric(
+                    label: displayName,
+                    usedPercent: percent,
+                    format: .percent,
+                    period: UsagePeriod(label: "7 days", resetsAt: resetsAt, durationMs: 7 * 24 * 60 * 60 * 1000)
+                ))
+            }
         }
-        
+
         return UsageData(account: account, plan: nil, metrics: metrics, settingURL: settingURL)
     }
-    
+
+    /// Parses the `Retry-After` header (either delta-seconds or an HTTP-date,
+    /// per RFC 9110 §10.2.3) into a cooldown duration from now.
+    private func retryAfterSeconds(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let value = response.value(forHTTPHeaderField: "Retry-After") else { return nil }
+
+        if let seconds = TimeInterval(value) { return seconds }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "GMT")
+        if let date = formatter.date(from: value) {
+            return max(0, date.timeIntervalSinceNow)
+        }
+        return nil
+    }
+
     private func parseDate(_ value: Any?) -> Date? {
         guard let str = value as? String else { return nil }
         // Anthropic returns timestamps both with and without fractional seconds

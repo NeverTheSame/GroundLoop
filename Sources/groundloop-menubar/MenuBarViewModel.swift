@@ -13,6 +13,9 @@ final class MenuBarViewModel: ObservableObject {
     @Published var accounts: [LLMAccount] = []
     @Published var usageByAccountID: [UUID: UsageData] = [:]
     @Published var errorByAccountID: [UUID: AccountErrorState] = [:]
+    /// Accounts currently cooling down from a 429; skipped on refresh until
+    /// this passes so retries don't keep re-triggering the rate limit.
+    private var rateLimitedUntil: [UUID: Date] = [:]
     @Published var isRefreshing = false
     @Published var isDiscovering = false
     @Published var showAddForm = false
@@ -61,8 +64,13 @@ final class MenuBarViewModel: ObservableObject {
         isRefreshing = true
         defer { isRefreshing = false }
 
+        let now = Date()
         await withTaskGroup(of: (UUID, Result<UsageData, Error>).self) { group in
             for account in accounts where account.isActive {
+                // Still cooling down from a prior 429 — skip so we don't
+                // re-trigger the rate limit; keep showing the existing message.
+                if let until = rateLimitedUntil[account.id], until > now { continue }
+
                 group.addTask { [usage] in
                     do {
                         let data = try await usage.fetchUsage(account: account)
@@ -77,8 +85,17 @@ final class MenuBarViewModel: ObservableObject {
                 case .success(let data):
                     usageByAccountID[id] = data
                     errorByAccountID.removeValue(forKey: id)
+                    rateLimitedUntil.removeValue(forKey: id)
                 case .failure(let error):
-                    if let account = accounts.first(where: { $0.id == id }),
+                    if let usageError = error as? UsageClientError,
+                       case .rateLimited(let retryAfter) = usageError {
+                        let wait = retryAfter ?? 90
+                        rateLimitedUntil[id] = Date().addingTimeInterval(wait)
+                        errorByAccountID[id] = AccountErrorState(
+                            message: "Rate limited by the provider — retrying automatically",
+                            canLaunchAntigravity: false
+                        )
+                    } else if let account = accounts.first(where: { $0.id == id }),
                        account.service == .antigravity,
                        isNoTokenError(error) {
                         errorByAccountID[id] = AccountErrorState(

@@ -148,7 +148,13 @@ public struct GLMClient: UsageClient {
             }
         }
 
-        return metrics
+        // The API returns `limits` in whatever order it feels like, which
+        // puts "Session" (the metric users actually watch) behind longer,
+        // less urgent quotas like the monthly MCP call budget. Claude and
+        // Codex always report Session first; match that here too.
+        let session = metrics.filter { $0.label == "Session" }
+        let rest = metrics.filter { $0.label != "Session" }
+        return session + rest
     }
 
     private func parsePlan(_ json: [String: Any]) -> PlanInfo? {

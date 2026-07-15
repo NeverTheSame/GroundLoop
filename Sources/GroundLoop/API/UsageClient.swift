@@ -23,4 +23,7 @@ public enum UsageClientError: Error {
     case networkError(Error)
     case invalidResponse
     case httpError(Int)
+    /// The service rate-limited this request (HTTP 429). `retryAfter` is the
+    /// server-advised cooldown in seconds, when the response provided one.
+    case rateLimited(retryAfter: TimeInterval?)
 }
