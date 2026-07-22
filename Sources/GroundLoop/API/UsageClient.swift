@@ -26,4 +26,7 @@ public enum UsageClientError: Error {
     /// The service rate-limited this request (HTTP 429). `retryAfter` is the
     /// server-advised cooldown in seconds, when the response provided one.
     case rateLimited(retryAfter: TimeInterval?)
+    /// The token was rejected and the stored refresh token can't renew it.
+    /// The user needs to re-import via the discovery button (magnifying glass).
+    case tokenNeedsReimport
 }

@@ -7,13 +7,6 @@ public actor GroundLoop {
     private var accounts: [LLMAccount] = []
     private var clients: [LLMService: any UsageClient] = [:]
 
-    /// Reading Claude Code's keychain item is the only thing this app does that
-    /// can raise a macOS password prompt, and the 5-minute refresh cycle will
-    /// otherwise retry it forever once the OAuth refresh grant starts failing.
-    /// Cap the damage: a failed re-read waits this long before trying again.
-    private var lastClaudeKeychainRead: Date?
-    private let claudeKeychainReadInterval: TimeInterval = 60 * 60
-
     public init(storage: AccountStorage? = nil) {
         self.storage = storage ?? KeychainStorage()
         self.discovery = TokenDiscoveryCoordinator()
@@ -158,12 +151,12 @@ public actor GroundLoop {
                    let refreshed = await refreshClaudeToken(accountID: account.id, client: client, token: token) {
                     return try await client.fetchUsage(account: refreshed)
                 }
-                // Last resort only: the stored refresh token was rejected
-                // (e.g. Claude Code rotated it). Re-read its keychain item —
-                // this is the ONLY remaining path that can show the OS prompt.
-                if let updatedAccount = try await throttledRediscoverClaudeToken(accountID: account.id) {
-                    return try await client.fetchUsage(account: updatedAccount)
-                }
+                // OAuth refresh failed — DON'T re-read Claude Code's keychain.
+                // That cross-app read triggers the macOS password prompt, which
+                // is far too aggressive for a background refresh. Surface the
+                // error instead; the user can click the magnifying glass to
+                // re-import the token when they're ready.
+                throw UsageClientError.tokenNeedsReimport
             }
             if account.service == .antigravity {
                 // Try once to rediscover
@@ -214,41 +207,6 @@ public actor GroundLoop {
         }
     }
 
-    /// Re-read Claude Code's keychain item, but at most once per
-    /// `claudeKeychainReadInterval`. Returns nil when throttled, which surfaces
-    /// the underlying token error in the UI rather than prompting again.
-    private func throttledRediscoverClaudeToken(accountID: UUID) async throws -> LLMAccount? {
-        if let last = lastClaudeKeychainRead,
-           Date().timeIntervalSince(last) < claudeKeychainReadInterval {
-            return nil
-        }
-        lastClaudeKeychainRead = Date()
-        return try await rediscoverAndReplaceClaudeToken(accountID: accountID)
-    }
-
-    /// Claude can rotate token values while account identity stays the same.
-    /// Replace only token fields on the existing account, preserving account metadata.
-    private func rediscoverAndReplaceClaudeToken(accountID: UUID) async throws -> LLMAccount? {
-        guard let discoveryResult = await discovery.discover(service: .claude),
-              let discoveredToken = discoveryResult.tokens.first,
-              let idx = accounts.firstIndex(where: { $0.id == accountID }) else {
-            return nil
-        }
-
-        var updated = accounts[idx]
-        if updated.tokens.isEmpty {
-            updated.tokens = [discoveredToken]
-        } else {
-            updated.tokens[0].accessToken = discoveredToken.accessToken
-            updated.tokens[0].refreshToken = discoveredToken.refreshToken
-            updated.tokens[0].expiresAt = discoveredToken.expiresAt
-        }
-        updated.updatedAt = Date()
-        accounts[idx] = updated
-        try await storage.saveAccounts(accounts)
-        return updated
-    }
-    
     /// Fetch usage for all active accounts
     public func fetchAllUsage() async -> [Result<UsageData, Error>] {
         let activeAccounts = accounts.filter { $0.isActive }

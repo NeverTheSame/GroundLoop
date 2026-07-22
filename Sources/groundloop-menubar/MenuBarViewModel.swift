@@ -102,6 +102,11 @@ final class MenuBarViewModel: ObservableObject {
                             message: "Antigravity is not running. Launch it, then refresh.",
                             canLaunchAntigravity: true
                         )
+                    } else if isTokenNeedsReimportError(error) {
+                        errorByAccountID[id] = AccountErrorState(
+                            message: "Token expired — click the magnifying glass to re-import",
+                            canLaunchAntigravity: false
+                        )
                     } else {
                         errorByAccountID[id] = AccountErrorState(
                             message: String(describing: error).prefix(80).description,
@@ -313,6 +318,14 @@ final class MenuBarViewModel: ObservableObject {
     private func isNoTokenError(_ error: Error) -> Bool {
         guard let usageError = error as? UsageClientError else { return false }
         if case .noToken = usageError {
+            return true
+        }
+        return false
+    }
+
+    private func isTokenNeedsReimportError(_ error: Error) -> Bool {
+        guard let usageError = error as? UsageClientError else { return false }
+        if case .tokenNeedsReimport = usageError {
             return true
         }
         return false
