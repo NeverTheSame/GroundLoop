@@ -10,8 +10,12 @@ struct FooterView: View {
                 Text(viewModel.isDiscovering ? "Discovering..." : "Refreshing...")
                     .font(.caption2).foregroundColor(.secondary)
             } else if let date = viewModel.lastRefreshed {
-                Text("Updated \(date, style: .relative) ago")
-                    .font(.caption2).foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Synced \(date, style: .relative) ago")
+                        .font(.caption2).foregroundColor(.secondary)
+                    Text(date, format: .dateTime.hour().minute())
+                        .font(.caption2).foregroundColor(.secondary.opacity(0.7))
+                }
             }
 
             Spacer()
