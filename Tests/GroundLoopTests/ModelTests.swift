@@ -15,6 +15,7 @@ import Testing
     let newToken = TokenInfo(accessToken: "new-token", source: .discovered)
     account.upsertToken(newToken)
     #expect(account.tokens.count == 2)
+    #expect(account.primaryToken?.accessToken == "new-token")
 }
 
 @Test func testTokenExpiry() async throws {

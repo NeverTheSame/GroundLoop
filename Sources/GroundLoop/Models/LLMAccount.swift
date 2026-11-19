@@ -37,6 +37,14 @@ public struct LLMAccount: Identifiable, Codable, Sendable {
     public mutating func upsertToken(_ token: TokenInfo) {
         if let idx = tokens.firstIndex(where: { $0.accessToken == token.accessToken }) {
             tokens[idx] = token
+            if token.source == .discovered, idx != 0 {
+                let refreshedToken = tokens.remove(at: idx)
+                tokens.insert(refreshedToken, at: 0)
+            }
+        } else if token.source == .discovered {
+            // A discovered credential represents the source application's
+            // current session, so prefer it over an older imported copy.
+            tokens.insert(token, at: 0)
         } else {
             tokens.append(token)
         }

@@ -88,6 +88,12 @@ public actor GroundLoop {
             }
 
             if var match = existing {
+                if result.service == .codex {
+                    // Codex discovery exposes the current CLI session. Retain
+                    // manually added credentials, but discard prior imported
+                    // sessions so stale access tokens cannot accumulate.
+                    match.tokens.removeAll { $0.source == .discovered }
+                }
                 for token in result.tokens {
                     match.upsertToken(token)
                 }
@@ -166,6 +172,15 @@ public actor GroundLoop {
                     return try await client.fetchUsage(account: updatedAccount)
                 }
             }
+            if account.service == .codex, isTokenError(error) {
+                // Codex CLI renews credentials in auth.json, while GroundLoop
+                // keeps its imported copy in the Keychain. Re-import once when
+                // the API rejects that copy, then retry with the current token.
+                _ = try? await discoverAndImport(service: .codex)
+                if let updatedAccount = accounts.first(where: { $0.id == account.id }) {
+                    return try await client.fetchUsage(account: updatedAccount)
+                }
+            }
             throw error
         }
     }
@@ -235,6 +250,10 @@ public actor GroundLoop {
     
     internal func registerClient(_ client: any UsageClient, for service: LLMService) {
         clients[service] = client
+    }
+
+    internal func registerDiscoverer(_ discoverer: any TokenDiscoverer) async {
+        await discovery.replace(discoverer)
     }
 }
 

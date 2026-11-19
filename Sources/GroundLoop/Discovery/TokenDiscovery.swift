@@ -29,6 +29,13 @@ public actor TokenDiscoveryCoordinator {
     public func register(_ discoverer: TokenDiscoverer) {
         discoverers.append(discoverer)
     }
+
+    /// Replace the discoverer for one service. This keeps a service from
+    /// retaining an outdated credential source when its setup changes.
+    public func replace(_ discoverer: TokenDiscoverer) {
+        discoverers.removeAll { $0.service == discoverer.service }
+        discoverers.append(discoverer)
+    }
     
     public func registerDefaults() {
         discoverers = [
