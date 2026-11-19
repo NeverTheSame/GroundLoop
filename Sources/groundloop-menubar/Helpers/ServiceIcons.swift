@@ -42,11 +42,22 @@ func serviceColor(for service: LLMService) -> Color {
     }
 }
 
+/// SwiftPM resource bundle produced for the menubar executable.
+private let menubarResourceBundleName = "GroundLoop_groundloop-menubar"
+
+/// URL of a service SVG, or nil if the packaged resource bundle cannot be found.
+func serviceLogoURL(_ name: String) -> URL? {
+    PackageResourceBundle.url(
+        named: menubarResourceBundleName,
+        forResource: name,
+        withExtension: "svg",
+        subdirectory: "ServiceLogos"
+    )
+}
+
 /// Loads an SVG from the bundle's ServiceLogos directory as a template NSImage.
 private func loadServiceLogo(_ name: String) -> NSImage? {
-    guard let url = Bundle.module.url(
-        forResource: name, withExtension: "svg", subdirectory: "ServiceLogos"
-    ) else { return nil }
+    guard let url = serviceLogoURL(name) else { return nil }
     guard let image = NSImage(contentsOf: url) else { return nil }
     image.isTemplate = true
     return image

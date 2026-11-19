@@ -148,8 +148,7 @@ class StatusBarController {
             // Load service SVG, draw it, then composite the usage colour on top.
             if let svc = service,
                let logoName = serviceLogoName(for: svc),
-               let url = Bundle.module.url(
-                   forResource: logoName, withExtension: "svg", subdirectory: "ServiceLogos"),
+               let url = serviceLogoURL(logoName),
                let logo = NSImage(contentsOf: url) {
                 logo.draw(in: iconRect)
                 color.setFill()
