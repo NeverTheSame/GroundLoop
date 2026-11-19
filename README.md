@@ -26,7 +26,7 @@ swift run groundloop account
 
 ## Menu Bar App (macOS)
 
-Monitor your LLM usage directly from your macOS menu bar. The app provides real-time visibility into your session and usage across multiple services.
+GroundLoop monitors your AI coding quotas directly from your macOS menu bar. The app provides real-time visibility into your session and usage across multiple services.
 
 **Features:**
 - Quick overview of all accounts and current usage.

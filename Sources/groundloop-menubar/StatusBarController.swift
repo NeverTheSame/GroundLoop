@@ -20,7 +20,7 @@ class StatusBarController {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = self.statusItem.button {
-            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "LLM Usage")
+            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "GroundLoop")
             button.imagePosition = .imageLeading
             button.action = #selector(handleAction(_:))
             button.target = self
@@ -84,7 +84,7 @@ class StatusBarController {
               let mostUsed = mostUsedMetric else {
             button.title = ""
             button.contentTintColor = nil
-            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "LLM Usage")
+            button.image = NSImage(systemSymbolName: "gauge.medium", accessibilityDescription: "GroundLoop")
             return
         }
 

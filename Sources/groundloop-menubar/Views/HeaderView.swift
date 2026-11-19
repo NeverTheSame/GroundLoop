@@ -6,7 +6,7 @@ struct HeaderView: View {
     var body: some View {
         HStack {
             if !viewModel.isDetached {
-                Text("LLM Usage").font(.headline)
+                Text("GroundLoop").font(.headline)
             }
             Spacer()
 
