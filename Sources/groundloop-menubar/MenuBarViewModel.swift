@@ -127,8 +127,10 @@ final class MenuBarViewModel: ObservableObject {
         }
 
         // Fire low-quota notifications for anything that just crossed the
-        // user-configured threshold.
+        // user-configured threshold, and reset notifications for any metric
+        // whose quota window just rolled over.
         LowQuotaNotifier.shared.evaluate(usages: successful)
+        QuotaResetNotifier.shared.evaluate(usages: successful)
     }
 
     func launchAntigravity() {

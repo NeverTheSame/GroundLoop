@@ -6,6 +6,7 @@ struct PreferencesView: View {
     @AppStorage("showRemainingPercent") private var showRemainingPercent = true
     @AppStorage("lowQuotaThreshold") private var lowQuotaThreshold: Double = 90
     @AppStorage("enableLowQuotaAlerts") private var enableLowQuotaAlerts = false
+    @AppStorage("enableQuotaResetAlerts") private var enableQuotaResetAlerts = true
 
     @State private var showClearConfirm = false
 
@@ -20,7 +21,7 @@ struct PreferencesView: View {
             dataTab
                 .tabItem { Label("Data", systemImage: "tray.full") }
         }
-        .frame(width: 460, height: 280)
+        .frame(width: 460, height: 320)
     }
 
     private var generalTab: some View {
@@ -86,6 +87,11 @@ struct PreferencesView: View {
                     .foregroundColor(.secondary)
             }
             .disabled(!enableLowQuotaAlerts)
+
+            Toggle("Notify when a quota resets", isOn: $enableQuotaResetAlerts)
+            Text("Get a notification when a provider's usage window rolls over and quota is available again.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
         .formStyle(.grouped)
     }
