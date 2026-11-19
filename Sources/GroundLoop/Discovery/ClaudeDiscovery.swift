@@ -4,19 +4,31 @@ import Foundation
 public struct ClaudeDiscovery: TokenDiscoverer {
     public let service = LLMService.claude
     
-    private let credentialPath = "~/.claude/.credentials.json"
+    private let credentialPath: String
     private let keychainService = "Claude Code-credentials"
+    private let readKeychain: @Sendable (String) -> String?
     
-    public init() {}
+    public init() {
+        self.init(credentialPath: "~/.claude/.credentials.json") {
+            KeychainStorage.readGenericPassword(service: $0)
+        }
+    }
+
+    internal init(credentialPath: String, readKeychain: @escaping @Sendable (String) -> String?) {
+        self.credentialPath = credentialPath
+        self.readKeychain = readKeychain
+    }
     
     public func discover() async throws -> DiscoveryResult? {
         // Try credential file first
-        if let result = try? discoverFromFile() {
-            return result
+        let fileResult = try? discoverFromFile()
+        if let fileResult, fileResult.tokens.first?.isExpired != true {
+            return fileResult
         }
         
-        // Fallback to keychain
-        return discoverFromKeychain()
+        // Fallback to keychain. On macOS Claude Code keeps its live session
+        // there, so a leftover credentials file can hold a long-expired token.
+        return discoverFromKeychain() ?? fileResult
     }
     
     private func discoverFromFile() throws -> DiscoveryResult? {
@@ -47,7 +59,7 @@ public struct ClaudeDiscovery: TokenDiscoverer {
     }
     
     private func discoverFromKeychain() -> DiscoveryResult? {
-        guard let raw = KeychainStorage.readGenericPassword(service: keychainService) else {
+        guard let raw = readKeychain(keychainService) else {
             return nil
         }
         
