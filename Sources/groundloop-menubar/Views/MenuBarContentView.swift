@@ -5,8 +5,13 @@ struct MenuBarContentView: View {
     var isDetachedWindow = false
     @EnvironmentObject var viewModel: MenuBarViewModel
     @ObservedObject private var hiddenStore = HiddenMetricsStore.shared
+    @AppStorage("defaultAccountID") private var defaultAccountIDString: String?
     @AppStorage("menuBarHeight") private var menuBarHeight: Double = 400
     @State private var dragStartHeight: Double?
+
+    private var defaultAccountID: UUID? {
+        defaultAccountIDString.flatMap { UUID(uuidString: $0) }
+    }
 
     var body: some View {
         if !isDetachedWindow && viewModel.isDetached {
@@ -34,16 +39,24 @@ struct MenuBarContentView: View {
                     let visibleAccounts = viewModel.accounts.filter {
                         !hiddenStore.isAccountHidden($0.id)
                     }
+                    // Pin the chosen (starred) provider to the top so it is
+                    // visible without scrolling; the rest keeps manual order.
+                    let orderedAccounts = visibleAccounts.filter { $0.id == defaultAccountID }
+                        + visibleAccounts.filter { $0.id != defaultAccountID }
                     let hiddenAccountCount = viewModel.accounts.count - visibleAccounts.count
                     List {
-                        ForEach(visibleAccounts) { account in
+                        ForEach(orderedAccounts) { account in
                             AccountRowView(account: account)
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                         }
                         .onMove { source, destination in
-                            viewModel.moveAccounts(from: source, to: destination)
+                            viewModel.moveAccounts(
+                                displayIDs: orderedAccounts.map(\.id),
+                                from: source,
+                                to: destination
+                            )
                         }
                         if hiddenAccountCount > 0 {
                             Button {

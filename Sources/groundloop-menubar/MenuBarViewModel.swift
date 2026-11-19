@@ -203,8 +203,27 @@ final class MenuBarViewModel: ObservableObject {
         await refreshUsage()
     }
 
-    func moveAccounts(from source: IndexSet, to destination: Int) {
-        accounts.move(fromOffsets: source, toOffset: destination)
+    /// Reorders accounts from the *displayed* (filtered, default-pinned) order
+    /// and splices that order back into the full model, keeping hidden
+    /// accounts in their existing slots.
+    func moveAccounts(displayIDs: [UUID], from source: IndexSet, to destination: Int) {
+        var newDisplayIDs = displayIDs
+        newDisplayIDs.move(fromOffsets: source, toOffset: destination)
+
+        let accountByID = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        let displayedSet = Set(newDisplayIDs)
+        var nextDisplayed = newDisplayIDs.makeIterator()
+
+        var reordered: [LLMAccount] = []
+        reordered.reserveCapacity(accounts.count)
+        for account in accounts {
+            if displayedSet.contains(account.id), let id = nextDisplayed.next() {
+                reordered.append(accountByID[id] ?? account)
+            } else {
+                reordered.append(account)
+            }
+        }
+        accounts = reordered
         Task { try? await usage.saveAccountsInOrder(accounts) }
     }
 
