@@ -2,6 +2,8 @@
 
 Ground Loop is an all-in-one solution for managing and monitoring your LLM service accounts on macOS. It consists of a **Swift library**, a **CLI tool**, and a **macOS Menu Bar application**.
 
+GroundLoop started from [LLMUsage](https://github.com/phimage/LLMUsage) by Eric Marchand (MIT) and has been developed separately since.
+
 ## Quick Start
 
 ```bash
